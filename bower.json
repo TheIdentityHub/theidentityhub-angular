@@ -1,0 +1,20 @@
+{
+    "name": "theidentityhub-angular",
+    "version": "1.0.0",
+    "authors": [
+        "The Identity Hub <support@theidentityhub.com>"
+    ],
+    "dependencies": {
+        "angular": "~1.2.x"
+    },
+    "description": "AngularJS SDK for The Identity Hub. The Identity Hub makes it easy to connect your app to all major identity providers like Microsoft, Facebook, Google, Twitter, Linked In and more. For more information see https://www.theidentityhub.com",
+    "main": "theidentityhub-angular.min.js",
+    "keywords": [
+        "identity",
+        "security",
+        "Identity & Access management",
+        "angular"
+    ],
+    "license": "MIT",
+    "homepage": "https://www.theidentityhub.com"
+}
