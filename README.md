@@ -32,7 +32,7 @@ angular.module('app', ['identityHub'])
             popup: false
         });
     });
-    ````
+````
 
 Using this configuration the user will be redirected to The Identity Hub to authenticate. After the user is authenticated The Identity Hub will redirect back to your app.
 
