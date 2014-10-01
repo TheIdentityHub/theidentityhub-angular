@@ -6,7 +6,7 @@ The Identity Hub makes it easy to connect your app to all major identity provide
 Getting Started
 ===============
 
-To use The Identity Hub to provide sign-in for you AngularJS app, using a variety of account providers, you will need an account at The Identity Hub. If you do not have an account sign up for a [free plan](https://www.theidentityhub.com/#pricing)
+Use The Identity Hub to provide sign-in for your AngularJS apps, using a variety of account providers. You will need an account at The Identity Hub. If you do not have an account sign up for a [free plan](https://www.theidentityhub.com/#pricing)
 
 ## Installation
 
