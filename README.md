@@ -18,9 +18,7 @@ Use bower to install the sdk in your project.
 bower install theidentityhub-angular
 ````
 
-## Getting Started
-
-### Configure your app
+## Configure your app
 
 ````js
 angular.module('app', ['identityHub'])
