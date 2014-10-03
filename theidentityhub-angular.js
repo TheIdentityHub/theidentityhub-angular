@@ -6,7 +6,7 @@ angular.module("identityHub").provider("identityService", function identityServi
     var _this = this;
     var errors = [];
 
-    this.init = function (parameters) {
+    this.config = function (parameters) {
         _this.oauthParameters = parameters;
     };
 

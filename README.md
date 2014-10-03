@@ -23,7 +23,7 @@ bower install theidentityhub-angular
 ````js
 angular.module('app', ['identityHub'])
     .config(function (identityServiceProvider) {
-        identityServiceProvider.init({
+        identityServiceProvider.config({
             baseUrl: "https://www.theidentityhub.com/{YOUR_URL_SEGMENT}",
             clientId: "[YOUR_CLIENT_ID]",
             redirectUri: "[YOUR_REDIRECT_PAGE]",
