@@ -56,6 +56,31 @@ angular.module("identityHub").provider("identityService", function identityServi
                         window.location.href = url;
                     }
                 },
+                signOut: function () {
+                    var deferred = $q.defer();
+                    var token = _this.getToken();
+
+                    sessionStorage.removeItem("access_token");
+                    service.principal.isAuthenticated = false;
+                    service.principal.identity = null;
+
+                    $http({
+                        method: "POST",
+                        url: _this.oauthParameters.baseUrl + "/oauth2/v1/revoke",
+                        data: $.param({
+                            "token": token.access_token,
+                            "token_type_hint": "access_token",
+                            "client_id": _this.oauthParameters.clientId
+                        }),
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" }
+                    }).success(function (response) {
+                        deferred.resolve(response);
+                    }).error(function (error) {
+                        deferred.reject(error);
+                    });
+
+                    return deferred.promise;
+                },
                 getProfile: function () {
                     var deferred = $q.defer();
                     var token = _this.getToken();
@@ -97,16 +122,24 @@ angular.module("identityHub").provider("identityService", function identityServi
             };
 
             this.getToken = function () {
+                var token;
+                var today = new Date().getTime();
+
                 if (service.principal && service.principal !== undefined) {
-                    var token = service.principal.token;
-                    var today = new Date().getTime();
+                    token = service.principal.token;
                     if (token && token.access_token && token.expiry > today) {
                         return token;
-                    } else {
-                        service.principal.token = null;
-                        service.principal.isAuthenticated = false;
+                    }
+                } else {
+                    token = JSON.parse(sessionStorage.getItem("access_token"));
+                    if (token && token.access_token && token.expiry > today) {
+                        return token;
                     }
                 }
+
+                service.principal.token = null;
+                service.principal.isAuthenticated = false;
+                sessionStorage.removeItem("access_token");
 
                 if (!_this.oauthParameters.manualSignIn) {
                     service.signIn();
@@ -122,6 +155,8 @@ angular.module("identityHub").provider("identityService", function identityServi
                     };
 
                     service.principal.isAuthenticated = true;
+
+                    sessionStorage.setItem("access_token", service.principal.token);
                 }
 
                 return null;
