@@ -8,10 +8,21 @@ angular.module("identityHub").provider("identityService", function identityServi
 
     this.config = function (parameters) {
         _this.oauthParameters = parameters;
+        var baseUrl = _this.oauthParameters.baseUrl;
+        if (typeof baseUrl !== "string") {
+            throw { error: "The baseUrl is required." };
+        }
+
+        baseUrl = baseUrl.trim();
+        if (baseUrl[baseUrl.length - 1] === '/') {
+            baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+        }
+
+        _this.oauthParameters.baseUrl = baseUrl;
     };
 
     this.$get = [
-        '$http', '$q', '$interval', function identityServiceFactory($http, $q, $interval) {
+        '$http', '$q', '$interval', '$window', function identityServiceFactory($http, $q, $interval, $window) {
             var _this = this;
             var errors = [];
             var self = this;
@@ -26,34 +37,20 @@ angular.module("identityHub").provider("identityService", function identityServi
                     if (state && state !== "") {
                         url += "&state=" + encodeURIComponent(state);
                     } else {
-                        url += "&state=" + encodeURIComponent(window.location.hash);
+                        url += "&state=" + encodeURIComponent($window.location.hash);
                     }
 
                     if (_this.oauthParameters.popup) {
-                        var left = window.screenX + (window.outerWidth - 600) / 2;
-                        var top = window.screenY + (window.outerHeight - 400) / 2;
-
-                        var windowOptions = "status=0,resizable=0,location=0,toolbar=0,menubar=0,titlebar=0,left=" + left + ",top=" + top + ",height=400px,width=600px";
-
-                        var win = window.open(url, null, windowOptions);
-
-                        var check = $interval(function () {
-                            var hash;
-                            try  {
-                                if (win.location.href.indexOf(self.oauthParameters.redirectUri) >= 0) {
-                                    hash = win.location.hash;
-                                    setTimeout(function () {
-                                        self.parseResponse(hash);
-                                    }, 1000);
-                                    win.close();
-                                    win = null;
-                                    $interval.cancel(check);
-                                }
-                            } catch (ex) {
-                            }
-                        }, 1000);
+                        _this.authenticationBroker({
+                            "url": url,
+                            "redirectUri": self.oauthParameters.redirectUri,
+                            "width": 600,
+                            "height": 500
+                        }).then(function (response) {
+                            self.parseResponse(response.hash);
+                        });
                     } else {
-                        window.location.href = url;
+                        $window.location.href = url;
                     }
                 },
                 signOut: function () {
@@ -62,6 +59,7 @@ angular.module("identityHub").provider("identityService", function identityServi
 
                     sessionStorage.removeItem("access_token");
                     service.principal.isAuthenticated = false;
+                    service.principal.isVerified = false;
                     service.principal.identity = null;
 
                     $http({
@@ -114,11 +112,117 @@ angular.module("identityHub").provider("identityService", function identityServi
 
                     return deferred.promise;
                 },
+                getAccounts: function () {
+                    var deferred = $q.defer();
+                    var token = _this.getToken();
+
+                    $http.get(_this.oauthParameters.baseUrl + "/api/identity/v1/accounts", {
+                        headers: {
+                            "Authorization": "Bearer " + token.access_token
+                        }
+                    }).success(function (response) {
+                        deferred.resolve(response);
+                    }).error(function (error) {
+                        deferred.reject(error);
+                    });
+
+                    return deferred.promise;
+                },
+                requireTwoFactorAuthentication: function () {
+                    var deferred = $q.defer();
+                    var token = _this.getToken();
+
+                    if (service.principal.isVerified) {
+                        deferred.resolve(true);
+                        return deferred.promise;
+                    }
+
+                    $http.get(_this.oauthParameters.baseUrl + "/oauth2/v1/verify", {
+                        headers: { "Authorization": "Bearer " + token.access_token }
+                    }).success(function (response) {
+                        if (response && response.resource_owner_identity_verified) {
+                            service.principal.isVerified = true;
+                            deferred.resolve(true);
+                        } else {
+                            var requestUri = _this.oauthParameters.baseUrl + "/Authenticate/PerformTwoFactorAuthenticationVerification?accessToken=" + token.access_token + "&clientId=" + _this.oauthParameters.clientId + "&returnUrl=" + encodeURIComponent(_this.oauthParameters.redirectUri);
+
+                            _this.authenticationBroker({
+                                "url": requestUri,
+                                "redirectUri": _this.oauthParameters.redirectUri,
+                                "width": 600,
+                                "height": 500
+                            }).then(function (response) {
+                                var property = "resource_owner_identity_verified=";
+                                var pos = response.href.indexOf(property);
+                                if (pos != -1 && response.href.length >= pos + (property.length + 1)) {
+                                    var isVerified = response.href[pos + property.length] == '1';
+                                    service.principal.isVerified = isVerified;
+                                    deferred.resolve(isVerified);
+                                } else {
+                                    deferred.resolve(false);
+                                }
+                            });
+                        }
+                    }).error(function (error) {
+                        deferred.reject(error);
+                    });
+
+                    return deferred.promise;
+                },
+                addAccount: function (accountProvider) {
+                    var deferred = $q.defer();
+                    var token = _this.getToken();
+
+                    _this.authenticationBroker({
+                        "url": accountProvider.signInUrl + "?access_token=" + token.access_token + "&returnurl=" + encodeURIComponent(_this.oauthParameters.redirectUri),
+                        "redirectUri": _this.oauthParameters.redirectUri,
+                        "width": 600,
+                        "height": 500
+                    }).then(function (response) {
+                        deferred.resolve();
+                    });
+
+                    return deferred.promise;
+                },
                 principal: {
                     isAuthenticated: false,
+                    isVerified: false,
                     token: null,
                     identity: null
                 }
+            };
+
+            this.authenticationBroker = function (options) {
+                var deferred = $q.defer();
+                var left = $window.screenX + ($window.outerWidth - options.width) / 2;
+                var top = $window.screenY + ($window.outerHeight - options.height) / 2;
+
+                var windowOptions = "status=0,resizable=0,scrollbars=1,location=0,toolbar=0,menubar=0,titlebar=0" + ",left= " + left + ",top=" + top + ",height=" + options.height + ",width=" + options.width;
+
+                var brokerWindow = $window.open(options.url, "Authenticate", windowOptions);
+
+                var check = $interval(function () {
+                    try  {
+                        if (brokerWindow.location.href.indexOf(options.redirectUri) >= 0) {
+                            var response = {
+                                href: brokerWindow.location.href,
+                                hash: brokerWindow.location.hash,
+                                search: brokerWindow.location.search
+                            };
+
+                            setTimeout(function () {
+                                deferred.resolve(response);
+                            }, 1000);
+
+                            brokerWindow.close();
+                            brokerWindow = null;
+                            $interval.cancel(check);
+                        }
+                    } catch (ex) {
+                    }
+                }, 1000);
+
+                return deferred.promise;
             };
 
             this.getToken = function () {
@@ -155,6 +259,7 @@ angular.module("identityHub").provider("identityService", function identityServi
                     };
 
                     service.principal.isAuthenticated = true;
+                    service.principal.isVerified = responseParams.resource_owner_identity_verified === '1';
 
                     sessionStorage.setItem("access_token", service.principal.token);
                 }
@@ -162,22 +267,18 @@ angular.module("identityHub").provider("identityService", function identityServi
                 return null;
             };
 
-            this.parseResponse = function (url, callback) {
+            this.parseResponse = function (hash) {
                 var token, parameters;
 
-                if (!url || url === "") {
-                    url = window.location.hash;
+                if (!hash || hash === "") {
+                    hash = window.location.hash;
                 }
 
-                if (url && url !== "") {
-                    parameters = getQueryParameters(url);
+                if (hash && hash !== "") {
+                    parameters = getQueryParameters(hash);
                     _this.setToken(parameters);
                     if (service.principal.isAuthenticated) {
                         service.getProfile();
-
-                        if (callback) {
-                            callback(parameters);
-                        }
 
                         var state = parameters.state;
                         if (state && state !== "") {
