@@ -28,6 +28,7 @@ angular.module("identityHub").provider("identityService", function identityServi
             var self = this;
             var service = {
                 signIn: function (state) {
+                    var deferred = $q.defer();
                     var url = _this.oauthParameters.baseUrl + "/oauth2/v1/auth" + "?response_type=token" + "&client_id=" + encodeURIComponent(_this.oauthParameters.clientId) + "&redirect_uri=" + encodeURIComponent(_this.oauthParameters.redirectUri);
 
                     if (_this.oauthParameters.scopes !== undefined) {
@@ -48,10 +49,14 @@ angular.module("identityHub").provider("identityService", function identityServi
                             "height": 500
                         }).then(function (response) {
                             self.parseResponse(response.hash);
+                            deferred.resolve();
                         });
                     } else {
                         $window.location.href = url;
+                        deferred.resolve();
                     }
+
+                    return deferred.promise;
                 },
                 signOut: function () {
                     var deferred = $q.defer();
@@ -105,6 +110,23 @@ angular.module("identityHub").provider("identityService", function identityServi
                             "Authorization": "Bearer " + token.access_token
                         }
                     }).success(function (response) {
+                        deferred.resolve(response);
+                    }).error(function (error) {
+                        deferred.reject(error);
+                    });
+
+                    return deferred.promise;
+                },
+                getRoles: function () {
+                    var deferred = $q.defer();
+                    var token = _this.getToken();
+
+                    $http.get(_this.oauthParameters.baseUrl + "/api/identity/v1/roles", {
+                        headers: {
+                            "Authorization": "Bearer " + token.access_token
+                        }
+                    }).success(function (response) {
+                        service.principal.roles = response;
                         deferred.resolve(response);
                     }).error(function (error) {
                         deferred.reject(error);
@@ -188,7 +210,17 @@ angular.module("identityHub").provider("identityService", function identityServi
                     isAuthenticated: false,
                     isVerified: false,
                     token: null,
-                    identity: null
+                    identity: null,
+                    roles: [],
+                    isInRole: function (role) {
+                        var found = false;
+                        $.each(service.principal.roles, function (index, element) {
+                            found = (element.name === role);
+                            return !found;
+                        });
+
+                        return found;
+                    }
                 }
             };
 
@@ -242,6 +274,7 @@ angular.module("identityHub").provider("identityService", function identityServi
                 }
 
                 service.principal.token = null;
+                service.principal.roles = [];
                 service.principal.isAuthenticated = false;
                 sessionStorage.removeItem("access_token");
 
@@ -279,6 +312,7 @@ angular.module("identityHub").provider("identityService", function identityServi
                     _this.setToken(parameters);
                     if (service.principal.isAuthenticated) {
                         service.getProfile();
+                        service.getRoles();
 
                         var state = parameters.state;
                         if (state && state !== "") {
