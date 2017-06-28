@@ -234,7 +234,7 @@ angular.module("identityHub").provider("identityService", function identityServi
                 var brokerWindow = $window.open(options.url, "Authenticate", windowOptions);
 
                 var check = $interval(function () {
-                    try  {
+                    try {
                         if (brokerWindow.location.href.indexOf(options.redirectUri) >= 0) {
                             var response = {
                                 href: brokerWindow.location.href,
@@ -261,7 +261,7 @@ angular.module("identityHub").provider("identityService", function identityServi
                 var token;
                 var today = new Date().getTime();
 
-                if (service.principal && service.principal !== undefined) {
+                if (service.principal && service.principal !== undefined && service.principal.token && service.principal.token !== undefined) {
                     token = service.principal.token;
                     if (token && token.access_token && token.expiry > today) {
                         return token;
@@ -294,7 +294,7 @@ angular.module("identityHub").provider("identityService", function identityServi
                     service.principal.isAuthenticated = true;
                     service.principal.isVerified = responseParams.resource_owner_identity_verified === '1';
 
-                    sessionStorage.setItem("access_token", service.principal.token);
+                    sessionStorage.setItem("access_token", JSON.stringify(service.principal.token));
                 }
 
                 return null;

@@ -36,3 +36,4 @@ Using this configuration the user will be redirected to The Identity Hub to auth
 
 After sign-in you can use the identityService.principal object to get info on the current user.
 
+Note that the configuration option `popup` is currently not supported with Node.js.
